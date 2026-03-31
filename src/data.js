@@ -1,13 +1,13 @@
 import { makeIndex } from "./lib/utils.js";
 const BASE_URL = 'https://webinars.webdev.education-services.ru/sp7-api';
 export function initData(sourceData) {
-  // переменные для кеширования
+  // переменные для кеширования данных
   let sellers;
   let customers;
   let lastResult;
   let lastQuery;
 
-  //  приведение строк в табличный вид
+  // функция для приведения строк в тот вид, который нужен нашей таблице
   const mapRecords = (data) =>
     data.map((item) => ({
       id: item.receipt_id,
@@ -17,14 +17,14 @@ export function initData(sourceData) {
       total: item.total_amount,
     }));
 
-  // получаем индексы
+  // функция получения индексов
   const getIndexes = async () => {
     if (!sellers || !customers) {
       // если индексы ещё не установлены, то делаем запросы
       [sellers, customers] = await Promise.all([
         // запрашиваем и деструктурируем в уже объявленные ранее переменные
-        fetch(`${BASE_URL}/sellers`).then((res) => res.json()), // get sellers
-        fetch(`${BASE_URL}/customers`).then((res) => res.json()), // get customers
+        fetch(`${BASE_URL}/sellers`).then((res) => res.json()), // запрашиваем продавцов
+        fetch(`${BASE_URL}/customers`).then((res) => res.json()), // запрашиваем покупателей
       ]);
     }
 
@@ -45,7 +45,7 @@ export function initData(sourceData) {
     const response = await fetch(`${BASE_URL}/records?${nextQuery}`);
     const records = await response.json();
 
-    lastQuery = nextQuery; // save for next queries
+    lastQuery = nextQuery; // сохраняем для следующих запросов
     lastResult = {
       total: records.total,
       items: mapRecords(records.items),

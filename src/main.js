@@ -1,83 +1,97 @@
-import './fonts/ys-display/fonts.css'
-import './style.css'
+import "./fonts/ys-display/fonts.css";
+import "./style.css";
 
-// Работа с данными
-import {ServerApi} from "./components/server.js";
-import {initData} from "./components/data.js";
+import { initData } from "./data.js";
+import { processFormData } from "./lib/utils.js";
 
-// Плагины к таблице
-import {initSorting} from "./components/sorting.js";
-import {initPagination} from "./components/pagination.js";
-import {initFiltering} from "./components/filtering.js";
-import {initSearching} from "./components/searching.js";
-import {initEditing} from "./components/editing.js";
+import { initTable } from "./components/table.js";
+// @todo: подключение
+import { initSearching } from "./components/searching.js";
+import { initSorting } from "./components/sorting.js";
+import { initFiltering } from "./components/filtering.js";
+import { initPagination } from "./components/pagination.js";
 
-// Реализация базовой таблицы
-import {initTable} from "./components/table.js";
+// Исходные данные используемые в render()
+const api = initData();
 
-// Основные константы это адрес сервера, схема данных и корневой элемент интерфейса
-//const BASE_URL = 'https://webinars.webdev.education-services.ru/sp7-api';
-const BASE_URL = 'http://localhost:3002/api';
-const schema = [
-    { name: 'date', label: 'Date', sort: true, filter: "text", edit: "date" },
-    { name: 'customer', label: 'Customer', filter: "text", edit: "select", options: "customers" },
-    { name: 'seller', label: 'Seller', filter: "select", options: "sellers", edit: "select" },
-    { name: 'total', label: 'Total', sort: true, filter: "range", edit: "number" },
-];
-const app = document.getElementById('app');
+/**
+ * Сбор и обработка полей из таблицы
+ * @returns {Object}
+ */
+function collectState() {
+  const state = processFormData(new FormData(sampleTable.container));
+  const rowsPerPage = parseInt(state.rowsPerPage); // приведём количество страниц к числу
+  const page = parseInt(state.page ?? 1); // номер страницы по умолчанию 1 и тоже число
 
-// Инициализируем слой данных с серверной реализацией АПИ
-// Но придерживаясь того же набора функций мы можем передать сюда и другую реализацию
-// Например для работы локально в браузере без запросов к серверу
-const api = initData( ServerApi(BASE_URL) );
-
-// Инициализируем плагины, чтобы связать их с функцией перерисовки и нашим api
-const sorting = initSorting(redraw);
-const pagination = initPagination(redraw);
-const filtering = initFiltering(redraw);
-const searching = initSearching(redraw);
-const editing = initEditing(redraw, api);
-
-// Инициализируем таблицу
-const { container, render } = initTable({
-    schema,
-    plugins: [ // Порядок применения плагинов важен так как они могут менять схему
-        editing.plugin,
-        searching.plugin,
-        filtering.plugin,
-        sorting.plugin,
-        pagination.plugin,
-    ]
-});
-
-// Выводим пустую таблицу на страницу
-app.replaceChildren( container );
-
-// Основная функция перерисовки так как объявлена через function доступна нам ранее для связывания
-async function redraw() {
-    // Формируем запрос к серверу
-    let query = {};
-    query = sorting.apply(query);
-    query = pagination.apply(query);
-    query = filtering.apply(query);
-    query = searching.apply(query);
-
-    // Получаем данные
-    const { items, total } = await api.getRecords(query);
-
-    // Отрисовываем таблицу
-    render(items);
-    // И обновляем плагины, которые требуют перерисовки после получения данных
-    // в нашем случае это только пагинация
-    pagination.update(total);
+  return {
+    ...state,
+    rowsPerPage,
+    page,
+  };
 }
 
-// Получаем индексы прежде всего (для работы select)
-api.getIndexes().then(indexes => {
-    // Передаем нужным плагинам
-    filtering.update(indexes);
-    editing.update(indexes);
+/**
+ * Перерисовка состояния таблицы при любых изменениях
+ * @param {HTMLButtonElement?} action
+ */
+async function render(action) {
+  let state = collectState(); // состояние полей из таблицы
+  let query = {}; // копируем для последующего изменения
+  // @todo: использование
+  query = applySearching(query, state, action); // result заменяем на query
+  query = applyFiltering(query, state, action); // result заменяем на query
+  query = applySorting(query, state, action); // result заменяем на query
+  query = applyPagination(query, state, action); // обновляем query
+  const { total, items } = await api.getRecords(query); // запрашиваем данные с собранными параметрами
+  updatePagination(total, query); // перерисовываем пагинатор
+  sampleTable.render(items);
+}
 
-    // вызываем основной цикл отрисовки
-    return redraw();
-})
+const sampleTable = initTable(
+  {
+    tableTemplate: "table",
+    rowTemplate: "row",
+    before: ["search", "header", "filter"],
+    after: ["pagination"],
+  },
+  render
+);
+
+// @todo: инициализация
+const { applyPagination, updatePagination } = initPagination(
+  sampleTable.pagination.elements, // передаём сюда элементы пагинации, найденные в шаблоне
+  (el, page, isCurrent) => {
+    // и колбэк, чтобы заполнять кнопки страниц данными
+    const input = el.querySelector("input");
+    const label = el.querySelector("span");
+    input.value = page;
+    input.checked = isCurrent;
+    label.textContent = page;
+    return el;
+  }
+);
+
+const applySorting = initSorting([
+  // передаём массив элементов, которые вызывают сортировку, чтобы изменять их визуальное представление
+  sampleTable.header.elements.sortByDate,
+  sampleTable.header.elements.sortByTotal,
+]);
+
+const { applyFiltering, updateIndexes } = initFiltering(
+  sampleTable.filter.elements
+);
+
+const applySearching = initSearching(sampleTable.search.elements);
+
+const appRoot = document.querySelector("#app");
+appRoot.appendChild(sampleTable.container);
+
+async function init() {
+  const indexes = await api.getIndexes();
+
+  updateIndexes(sampleTable.filter.elements, {
+    searchBySeller: indexes.sellers,
+  });
+}
+
+init().then(render);

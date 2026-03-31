@@ -1,88 +1,37 @@
-import {sortMap} from "../lib/sort.js";
-import {Column, Row} from "./table.js";
-import {capitalize, create} from "../lib/utils.js";
+import { sortCollection, sortMap } from "../lib/sort.js";
 
-function Header({ columns }) {
-    return create(Row, {
-        className: 'header-row',
-        columns
-    });
-}
-
-function HeaderColumn({ value }) {
-    return create(Column, {
-        role: 'columnheader',
-        value
-    })
-}
-
-function Sortable({ name, onClick }) {
-    return create('button', {
-        className: 'icon',
-        type: 'button',
-        name: 'sort',
-        dataset: {
-            field: 'date',
-            value: 'none',
-            name: `sortBy${capitalize(name)}`,
-            ariaLabel: `Sort by ${name}`
-        },
-        onClick
-    });
-}
-
-export function initSorting(onUpdate) {
+export function initSorting(columns) {
+  return (query, state, action) => {
     let field = null;
     let order = null;
-    let buttons = [];
 
-    const onClick = (event) => {
-        event.stopPropagation();
-        const action = event.target;
-
-        action.dataset.value = sortMap[action.dataset.value];
-        field = action.dataset.field;
-        order = action.dataset.value;
-
-        buttons.forEach(btn => {
-            if (btn.dataset.field !== action.dataset.field) {
-                btn.dataset.value = 'none';
-            }
-        });
-
-        void onUpdate();
+    if (action && action.name === "sort") {
+      // @todo: #3.1 — запомнить выбранный режим сортировки
+      action.dataset.value = sortMap[action.dataset.value]; // сохраним и применим как текущее следующее состояние из карты
+      field = action.dataset.field; // информация о сортируемом поле есть также в кнопке
+      order = action.dataset.value; // направление заберём прямо из датасета для точности
+      // @todo: #3.2 — сбросить сортировки остальных колонок
+      columns.forEach((column) => {
+        // перебираем элементы (в columns у нас массив кнопок)
+        if (column.dataset.field !== action.dataset.field) {
+          // если это не та кнопка, что нажал пользователь
+          column.dataset.value = "none"; // тогда сбрасываем её в начальное состояние
+        }
+      });
+    } else {
+      // @todo: #3.3 — получить выбранный режим сортировки
+      columns.forEach((column) => {
+        // перебираем все наши кнопки сортировки
+        if (column.dataset.value !== "none") {
+          // ищем ту, что находится не в начальном состоянии (предполагаем, что одна)
+          field = column.dataset.field; // сохраняем в переменных поле
+          order = column.dataset.value; // и направление сортировки
+        }
+      });
     }
 
-    const apply = (query) => {
-        const sort = (field && order !== 'none') ? `${field}:${order}` : null;
+    const sort = field && order !== "none" ? `${field}:${order}` : null; // сохраним в переменную параметр сортировки в виде field:direction
 
-        return sort ? Object.assign({}, query, { sort }) : query;
-    }
-
-    const plugin = (schema) => {
-        const header = Header({
-            columns: schema.map(column => {
-                let hCell = column.label ?? column.name;
-                if (column.sort) {
-                    const sortButton = Sortable({ name: column.name, onClick });
-                    buttons.push(sortButton);
-
-                    hCell = create('div', {
-                            class: 'sortable'
-                        },
-                        hCell,
-                        sortButton
-                    );
-                }
-
-                return HeaderColumn({
-                    value: hCell
-                });
-            })
-        });
-
-        return { type: 'before', element: header };
-    }
-
-    return { plugin, apply };
+    return sort ? Object.assign({}, query, { sort }) : query; // по общему принципу, если есть сортировка, добавляем, если нет, то не трогаем query
+  };
 }
