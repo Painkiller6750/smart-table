@@ -48,6 +48,199 @@
     --filter-hover: invert(30%) sepia(87%) saturate(454%) hue-rotate(188deg) brightness(80%) contrast(93%);
 }
 
+/* Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: var(--color-white);
+    border-radius: var(--size-radius-lg);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-content.modal-small {
+    max-width: 400px;
+}
+
+.modal-header {
+    padding: var(--size-gap);
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: var(--font-size);
+    color: var(--color-text-dark);
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--size-radius);
+    transition: var(--transition);
+}
+
+.modal-close:hover {
+    background: var(--color-button-hover);
+}
+
+.modal-body {
+    padding: var(--size-gap);
+    overflow-y: auto;
+    flex: 1;
+}
+
+/* Form Styles */
+.modal-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--size-gap-sm);
+}
+
+.form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-field label {
+    font-weight: 600;
+    color: var(--color-text-dark);
+    font-size: 14px;
+}
+
+.form-field input,
+.form-field select {
+    padding: 12px 16px;
+    border: 1px solid var(--color-input-border);
+    border-radius: var(--size-radius);
+    font-size: 14px;
+    transition: var(--transition);
+}
+
+.form-field input:focus,
+.form-field select:focus {
+    outline: none;
+    border-color: var(--color-focus-border);
+    box-shadow: 0 0 0 3px var(--color-focus-shadow);
+}
+
+.form-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: var(--size-gap-sm);
+    padding-top: var(--size-gap-sm);
+    border-top: 1px solid var(--color-border);
+}
+
+/* Button Styles */
+.btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: var(--size-radius);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+.btn-primary {
+    background: var(--color-primary);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #365399;
+}
+
+.btn-secondary {
+    background: var(--color-button-bg);
+    color: var(--color-text);
+}
+
+.btn-secondary:hover {
+    background: var(--color-button-hover);
+}
+
+.btn-danger {
+    background: #dc2626;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #b91c1c;
+}
+
+/* Table Controls */
+.table-controls {
+    margin-bottom: var(--size-gap-sm);
+    display: flex;
+    justify-content: flex-start;
+}
+
+.table-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .modal-content {
+        width: 95%;
+        margin: 20px;
+    }
+    
+    .modal-header,
+    .modal-body {
+        padding: 20px;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+    
+    .btn {
+        width: 100%;
+    }
+}
+
 /* Base & Reset */
 * {
     margin: 0; padding: 0; box-sizing: border-box;
@@ -68,7 +261,7 @@ main {
 /* Layout Components */
 .container {
     width: 100%;
-    max-width: 1400px;
+    max-width: 1600px;
     min-width: 650px;
     border-radius: var(--size-radius);
     overflow: hidden;
@@ -156,6 +349,16 @@ button.icon:hover,
 .button.active {
     background-color: var(--color-active-bg);
     color: var(--color-primary);
+}
+
+.button.button-add:hover {
+    background-color: #16a34a;
+    color: white;
+}
+
+.button.button-delete:hover {
+    background-color: #dc2626;
+    color: white;
 }
 
 /* Dropdown select */

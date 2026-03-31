@@ -112,3 +112,198 @@ export function getPages(currentPage, maxPage, limit) {
 
     return pages;
 }
+
+/**
+ * Объединяет несколько имен классов или объектов с именами классов в одну строку, удаляя дубликаты.
+ *
+ * @param {...(string|Object<string, boolean>)} names - Список имен классов в виде строк или объектов, где ключи — имена классов, а значения определяют их включение.
+ * @return {string} Одна строка, содержащая все уникальные имена классов, разделенные пробелами.
+ */
+export function classNames(...names) {
+    const classes = new Set();
+
+    names.forEach(name => {
+        if (typeof name === 'string') {
+            if (name) classes.add(name);
+        } else {
+            Object.keys(name).forEach(key => {
+                if (name[key]) {
+                    classes.add(key);
+                }
+            });
+        }
+    });
+
+    return Array.from(classes).join(' ');
+}
+
+/**
+ * Устанавливает множество атрибутов на элемент DOM, включая обработку специальных атрибутов, таких как события, стили, классы и свойства dataset.
+ *
+ * @param {HTMLElement} element - Элемент DOM, к которому будут применены атрибуты.
+ * @param {Object} attributes - Пары ключ-значение, представляющие атрибуты для установки.
+ * - "children": Заменяет содержимое элемента предоставленными дочерними элементами или строками.
+ * - "style": Может быть строкой для инлайн-CSS или объектом с парами ключ-значение для отдельных стилевых свойств.
+ * - "class" или "className": Принимает строку из имен классов, разделенных пробелами, или массив имен классов.
+ * - "data" или "dataset": Применяет значения к свойствам dataset элемента.
+ * - Атрибуты обработчиков событий (например, onClick, onMouseOver): Добавляет слушатели событий для указанных событий.
+ *
+ * @return {HTMLElement} Элемент DOM после применения атрибутов.
+ */
+export function setAttributes(element, attributes) {
+    Object.keys(attributes).forEach(key => {
+        // если значение пустое ничего не делаем
+        if (!attributes[key]) {
+            return;
+        }
+        // если выглядит как onClick, то ставим событие
+        if (/^on.+/.test(key)) {
+            element.addEventListener(key.slice(2).toLowerCase(), attributes[key]);
+            return;
+        }
+
+        // перебираем остальные варианты
+        switch (key) {
+            case 'children': // контент
+                setContent(element, attributes[key]);
+                break;
+            case 'style': // стили и переменные CSS
+                if (typeof attributes[key] === 'string') {
+                    element.style.cssText = attributes[key];
+                } else {
+                    Object.keys(attributes[key]).forEach(subKey => {
+                        if (/^--/.test(subKey)) {
+                            element.style.setProperty(subKey, attributes[key][subKey]);
+                        } else {
+                            element.style[subKey] = String(attributes[key][subKey]);
+                        }
+                    });
+                }
+                break;
+            case 'class': // имена классов, поддерживаем 2 варианта наименования для удобства
+            case 'className':
+                if (Array.isArray(attributes[key])) {
+                    element.className = classNames(...attributes[key]);
+                } else {
+                    element.classList.add(...attributes[key].split(' '));
+                }
+                break;
+            case 'data': // дата-сеты, поддерживаем 2 варианта наименования для удобства
+            case 'dataset':
+                Object.keys(attributes[key]).forEach(subKey => {
+                    element.dataset[subKey] = String(attributes[key][subKey]);
+                })
+                break;
+            default: // любой другой атрибут
+                element.setAttribute(key, String(attributes[key]));
+        }
+    });
+
+    return element;
+}
+
+/**
+ * Устанавливает содержимое указанного элемента DOM. Содержимое может быть строкой, единственным узлом DOM,
+ * массивом узлов или null. Если передано null или недопустимое значение, дочерние элементы элемента будут удалены.
+ *
+ * @param {Element} element Элемент DOM, содержимое которого будет установлено.
+ * @param {string|Node|Node[]|null} [content=null] Содержимое для установки. Это может быть строка, единственный узел DOM, массив узлов или null.
+ * @return {Element} Элемент DOM с обновленным содержимым.
+ */
+export function setContent(element, content = null) {
+    if (typeof content === 'string') {
+        element.textContent = content;
+    } else if (content instanceof Node) {
+        element.replaceChildren(content);
+    } else if (Array.isArray(content)) {
+        element.replaceChildren(...content);
+    } else {
+        element.replaceChildren();
+    }
+
+    return element;
+}
+
+/**
+ * Единая функция создания HTML-элементов с атрибутами и контентом
+ *
+ * @param tag Имя тега или имя функции с заранее подготовленной реализацией более сложной структуры
+ * @param props Объект атрибутов или параметров функции
+ * @param children Контент который нужно установить
+ * @returns {HTMLElement}
+ *
+ * @example
+ * // такой вызов
+ * create("div", { className: "container" },
+ *      create("h1", { className: "title" }, "Hello"),
+ *      create("p", { className: "subtitle", "world" })
+ * )
+ * // вернет нам элемент со следующей разметкой
+ * <div className="container">
+ *      <h1 className="title">Hello</h1>
+ *      <p className="subtitle">world</p>
+ * </div>
+ */
+export function create(tag, props, ...children) {
+    if (typeof tag === 'function') {
+        return tag({ ...props, children });
+    }
+
+    const element = document.createElement(tag);
+    setAttributes(element, props);
+    setContent(element, children);
+
+    return element;
+}
+
+/**
+ * Creates a deep clone of a given object, ensuring that nested objects, arrays, dates, maps, and sets
+ * are also cloned properly. Primitives and functions are returned as-is.
+ *
+ * @param {any} obj The object to be deeply cloned. Can be of any type, including objects, arrays, dates, maps, or sets.
+ * @return {any} A new object that is a deep clone of the input, or the input itself if it's a primitive or function.
+ */
+export function deepClone(obj) {
+    if (obj === null || typeof obj !== 'object') {
+        return obj; // Return primitives and functions as is
+    }
+
+    if (Array.isArray(obj)) {
+        return obj.map(deepClone); // Handle arrays recursively
+    }
+
+    if (obj instanceof Date) {
+        return new Date(obj); // Clone date objects
+    }
+
+    if (obj instanceof Map) {
+        return new Map(Array.from(obj.entries()).map(([key, value]) => [deepClone(key), deepClone(value)])); // Clone maps
+    }
+
+    if (obj instanceof Set) {
+        return new Set(Array.from(obj).map(deepClone)); // Clone sets
+    }
+
+    const clonedObj = {};
+    for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+            clonedObj[key] = deepClone(obj[key]); // Clone properties recursively
+        }
+    }
+
+    return clonedObj;
+}
+
+/**
+ * Capitalizes the first character of the given string.
+ *
+ * @param {string} str - The string to capitalize. Must be a valid string.
+ * @return {string} The input string with its first character converted to uppercase.
+ * @throws {TypeError} If the input is not a string.
+ */
+export function capitalize(str) {
+    if (typeof str !== 'string') {
+        throw new TypeError('Input must be a string');
+    }
+    return str.charAt(0).toUpperCase() + str.slice(1);
+}
