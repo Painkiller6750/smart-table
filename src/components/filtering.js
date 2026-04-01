@@ -13,7 +13,7 @@ export function initFiltering(elements) {
   };
 
   const applyFiltering = (query, state, action) => {
-    // код с обработкой очистки поля
+    // field cleaning
     if (action) {
       const button = action.target || action;
       if (button && button.name === "clear") {
