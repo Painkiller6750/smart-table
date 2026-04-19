@@ -1,5 +1,6 @@
-import './fonts/ys-display/fonts.css'
-import './style.css'
+
+import './fonts/ys-display/fonts.css';
+import './style.css';
 
 import {data as sourceData} from "./data/dataset_1.js";
 
@@ -13,8 +14,8 @@ import {initSorting} from "./components/sorting.js";
 import {initFiltering} from "./components/filtering.js";
 import {initSearching} from "./components/searching.js";
 
-// Исходные данные используемые в render()
-const {data, ...indexes} = initData(sourceData);
+// Шаг 1: вызов initData(sourceData) присваиваем константе API
+const API = initData(sourceData);
 
 /**
  * Сбор и обработка полей из таблицы
@@ -41,47 +42,85 @@ function collectState() {
  * Перерисовка состояния таблицы при любых изменениях
  * @param {HTMLButtonElement?} action
  */
-function render(action) {
-    let state = collectState(); // состояние полей из таблицы
-    let result = [...data]; // копируем для последующего изменения
-    // @todo: использование
-    result = applySearching(result, state, action);
-    result = applyFiltering(result, state, action);
-    result = applySorting(result, state, action);
-    result = applyPagination(result, state, action);
+async function render(action) {
+    try {
+        let state = collectState(); // состояние полей из таблицы
+        // Шаг 2.1: заменяем копирование данных на let query = {}
+        let query = {};
 
-    sampleTable.render(result)
+        // На данном этапе все apply* закомментированы по заданию
+        // query остаётся пустым — это нормально для первого шага
+
+        // Шаг 2.2: получаем данные через API
+        const { total, items } = await API.getRecords(query);
+
+        console.log('Получено записей:', items.length); // Отладка: проверяем количество данных
+        if (items.length === 0) {
+            console.warn('API вернул пустой массив items');
+        }
+
+        // Шаг 2.3: передаём items вместо result
+        sampleTable.render(items);
+    } catch (error) {
+        console.error('Ошибка в render:', error);
+    }
 }
 
-const sampleTable = initTable({
-    tableTemplate: 'table',
-    rowTemplate: 'row',
-    before: ['search', 'header', 'filter'],
-    after: ['pagination']
-}, render);
+// Глобальная переменная для хранения индексов
+let indexes;
+// Переменные для хранения компонентов (инициализируем позже)
+let sampleTable, applyPagination, applySorting, applyFiltering, applySearching;
 
-// @todo: инициализация
-const applyPagination = initPagination(sampleTable.pagination.elements, (el, page, isCurrent) => {
-    const input = el.querySelector('input');
-    const label = el.querySelector('span');
-    input.value = page;
-    input.checked = isCurrent;
-    label.textContent = page;
-    return el;
-});
+// Шаг 3: асинхронная функция init()
+async function init() {
+    // 3.1. внутри init() получаем индексы
+    indexes = await API.getIndexes();
 
-const applySorting = initSorting([
-    sampleTable.header.elements.sortByDate,
-    sampleTable.header.elements.sortByTotal
-]);
+    // Теперь, когда indexes получены, инициализируем компоненты
+    sampleTable = initTable({
+        tableTemplate: 'table',
+        rowTemplate: 'row',
+        before: ['search', 'header', 'filter'],
+        after: ['pagination']
+    }, render);
 
-const applyFiltering = initFiltering(sampleTable.filter.elements, {
-    searchBySeller: indexes.sellers
-});
+    applyPagination = initPagination(sampleTable.pagination.elements, (el, page, isCurrent) => {
+        const input = el.querySelector('input');
+        const label = el.querySelector('span');
+        input.value = page;
+        input.checked = isCurrent;
+        label.textContent = page;
+        return el;
+    });
 
-const applySearching = initSearching('search');
+    applySorting = initSorting([
+        sampleTable.header.elements.sortByDate,
+        sampleTable.header.elements.sortByTotal
+    ]);
 
-const appRoot = document.querySelector('#app');
-appRoot.appendChild(sampleTable.container);
+    // Закомментируем applyFiltering по заданию
+    // applyFiltering = initFiltering(sampleTable.filter.elements, {
+    //     searchBySeller: indexes.sellers
+    // });
 
-render();
+    applySearching = initSearching('search');
+
+    const appRoot = document.querySelector('#app');
+    appRoot.appendChild(sampleTable.container);
+
+    // Возвращаем sampleTable для использования в render
+    return sampleTable;
+}
+
+// Заменяем вызов render на init().then(render) с обработкой ошибок
+init()
+    .then(() => {
+        // После инициализации вызываем render
+        render();
+    })
+    .catch(error => {
+        console.error('Ошибка инициализации:', error);
+        // Показываем сообщение об ошибке пользователю
+        const appRoot = document.querySelector('#app');
+        appRoot.innerHTML = '<div class="error">Ошибка загрузки данных</div>';
+    });
