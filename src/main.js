@@ -43,7 +43,7 @@ async function render(action) {
         let query = {};
 
         // Применяем пагинацию
-        query = applySearching(query, state, action); // result заменяем на query
+        query = applySorting(query, state, action); // result заменяем на query
 
         // Применяем фильтрацию — только если компонент инициализирован
         if (applyFiltering && typeof applyFiltering.applyFiltering === 'function') {
