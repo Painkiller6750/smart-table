@@ -1,8 +1,5 @@
-
 import './fonts/ys-display/fonts.css';
 import './style.css';
-
-import {data as sourceData} from "./data/dataset_1.js";
 
 import {initData} from "./data.js";
 import {processFormData} from "./lib/utils.js";
@@ -14,8 +11,7 @@ import {initSorting} from "./components/sorting.js";
 import {initFiltering} from "./components/filtering.js";
 import {initSearching} from "./components/searching.js";
 
-// Шаг 1: вызов initData(sourceData) присваиваем константе API
-const API = initData(sourceData);
+const api = initData();
 
 /**
  * Сбор и обработка полей из таблицы
@@ -44,39 +40,31 @@ function collectState() {
  */
 async function render(action) {
     try {
-        let state = collectState(); // состояние полей из таблицы
-        // Шаг 2.1: заменяем копирование данных на let query = {}
+        let state = collectState();
         let query = {};
 
-        // На данном этапе все apply* закомментированы по заданию
-        // query остаётся пустым — это нормально для первого шага
+        // Пока закомментированы по заданию
+        // query = applySearching(query, state, action);
+        // query = applyFiltering(query, state, action);
+        query = applySorting(query, state, action);
+        query = applyPagination(query, state, action);
 
-        // Шаг 2.2: получаем данные через API
-        const { total, items } = await API.getRecords(query);
+        const { total, items } = await api.getRecords(query);
 
-        console.log('Получено записей:', items.length); // Отладка: проверяем количество данных
-        if (items.length === 0) {
-            console.warn('API вернул пустой массив items');
-        }
-
-        // Шаг 2.3: передаём items вместо result
+        updatePagination(total, query);
         sampleTable.render(items);
     } catch (error) {
         console.error('Ошибка в render:', error);
     }
 }
 
-// Глобальная переменная для хранения индексов
-let indexes;
-// Переменные для хранения компонентов (инициализируем позже)
-let sampleTable, applyPagination, applySorting, applyFiltering, applySearching;
+let sampleTable, applyPagination, updatePagination, applySorting, applySearching, applyFiltering, updateIndexes;
 
-// Шаг 3: асинхронная функция init()
 async function init() {
-    // 3.1. внутри init() получаем индексы
-    indexes = await API.getIndexes();
+    // Сначала получаем индексы с сервера
+    const indexes = await api.getIndexes();
 
-    // Теперь, когда indexes получены, инициализируем компоненты
+    // Теперь инициализируем компоненты ПОСЛЕ получения индексов
     sampleTable = initTable({
         tableTemplate: 'table',
         rowTemplate: 'row',
@@ -84,43 +72,40 @@ async function init() {
         after: ['pagination']
     }, render);
 
-    applyPagination = initPagination(sampleTable.pagination.elements, (el, page, isCurrent) => {
-        const input = el.querySelector('input');
-        const label = el.querySelector('span');
-        input.value = page;
-        input.checked = isCurrent;
-        label.textContent = page;
-        return el;
-    });
+    ({applyPagination, updatePagination} = initPagination(
+        sampleTable.pagination.elements,
+        (el, page, isCurrent) => {
+            const input = el.querySelector('input');
+            const label = el.querySelector('span');
+            input.value = page;
+            input.checked = isCurrent;
+            label.textContent = page;
+            return el;
+        }
+    ));
 
     applySorting = initSorting([
         sampleTable.header.elements.sortByDate,
         sampleTable.header.elements.sortByTotal
     ]);
 
-    // Закомментируем applyFiltering по заданию
-    // applyFiltering = initFiltering(sampleTable.filter.elements, {
-    //     searchBySeller: indexes.sellers
-    // });
+    ({applyFiltering, updateIndexes} = initFiltering(sampleTable.filter.elements));
+
+    // Обновляем фильтры с полученными индексами
+    updateIndexes(sampleTable.filter.elements, {
+        searchBySeller: indexes.sellers
+    });
 
     applySearching = initSearching('search');
 
     const appRoot = document.querySelector('#app');
     appRoot.appendChild(sampleTable.container);
-
-    // Возвращаем sampleTable для использования в render
-    return sampleTable;
 }
 
-// Заменяем вызов render на init().then(render) с обработкой ошибок
 init()
-    .then(() => {
-        // После инициализации вызываем render
-        render();
-    })
+    .then(() => render())
     .catch(error => {
         console.error('Ошибка инициализации:', error);
-        // Показываем сообщение об ошибке пользователю
         const appRoot = document.querySelector('#app');
         appRoot.innerHTML = '<div class="error">Ошибка загрузки данных</div>';
     });
