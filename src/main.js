@@ -33,7 +33,6 @@ function collectState() {
         page
     };
 }
-
 /**
  * Перерисовка состояния таблицы при любых изменениях
  * @param {HTMLButtonElement?} action
