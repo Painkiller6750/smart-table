@@ -1,47 +1,60 @@
-import {createComparison, defaultRules} from "../lib/compare.js";
-
-// @todo: #4.3 — настроить компаратор
-const compare = createComparison(defaultRules);
-
 export function initFiltering(elements) {
-    let indexes = {}; // Храним индексы внутри компонента
-
-    // Функция для обновления индексов
-    const updateIndexes = (elements, newIndexes) => {
-        indexes = newIndexes;
-
+    // Функция для обновления индексов (заполнения select опциями)
+    const updateIndexes = (elements, indexes) => {
         // Очищаем существующие опции
         Object.keys(elements).forEach(elementName => {
-            elements[elementName].innerHTML = '';
+            if (elements[elementName]) {
+                elements[elementName].innerHTML = '';
+            }
         });
 
         // Заполняем выпадающие списки опциями
         Object.keys(indexes).forEach((elementName) => {
-            if (elements[elementName]) {
-                elements[elementName].append(...Object.values(indexes[elementName]).map(name => {
+            if (elements[elementName] && indexes[elementName]) {
+                const options = Object.values(indexes[elementName]).map(name => {
                     const el = document.createElement('option');
                     el.textContent = name;
                     el.value = name;
                     return el;
-                }));
+                });
+                elements[elementName].append(...options);
             }
         });
     };
 
-    const applyFiltering = (data, state, action) => {
+    // Функция формирования параметров фильтрации для запроса к серверу
+    const applyFiltering = (query, state, action) => {
         // Обрабатываем очистку поля
         if (action && action.name === 'clear') {
             const input = action.parentElement.querySelector('input');
-            input.value = '';
-            state[action.dataset.field] = '';
+            if (input) {
+                input.value = '';
+            }
+            // Обновляем state — убираем значение очищенного поля
+            if (action.dataset.field) {
+                state[action.dataset.field] = '';
+            }
         }
 
-        // Фильтруем данные используя компаратор
-        return data.filter(row => compare(row, state));
+        // Формируем параметры фильтрации
+        const filter = {};
+        Object.keys(elements).forEach(key => {
+            if (elements[key]) {
+                if (['INPUT', 'SELECT'].includes(elements[key].tagName) && elements[key].value) {
+                    // Формируем вложенный объект фильтра
+                    filter[`filter[${elements[key].name}]`] = elements[key].value;
+                }
+            }
+        });
+
+        // Если есть параметры фильтрации, добавляем их к запросу
+        return Object.keys(filter).length
+            ? Object.assign({}, query, filter)
+            : query;
     };
 
     return {
-        applyFiltering,
-        updateIndexes
+        updateIndexes,
+        applyFiltering
     };
 }

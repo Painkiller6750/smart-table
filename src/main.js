@@ -11,7 +11,7 @@ import {initSorting} from "./components/sorting.js";
 import {initFiltering} from "./components/filtering.js";
 import {initSearching} from "./components/searching.js";
 
-const api = initData();
+const API = initData();
 
 /**
  * Сбор и обработка полей из таблицы
@@ -43,63 +43,84 @@ async function render(action) {
         let state = collectState();
         let query = {};
 
-        // Пока закомментированы по заданию
-        // query = applySearching(query, state, action);
-        // query = applyFiltering(query, state, action);
-        query = applySorting(query, state, action);
-        query = applyPagination(query, state, action);
+        // Применяем пагинацию
+        query = applyPagination.applyPagination(query, state, action);
 
-        const { total, items } = await api.getRecords(query);
+        // Применяем фильтрацию — только если компонент инициализирован
+        if (applyFiltering && typeof applyFiltering.applyFiltering === 'function') {
+            query = applyFiltering.applyFiltering(query, state, action);
+        }
 
-        updatePagination(total, query);
+        // Получаем данные с сервера с учётом фильтров и пагинации
+        const { total, items } = await API.getRecords(query);
+
+        // Обновляем отображение пагинации после получения данных
+        applyPagination.updatePagination(total, query);
+
+        // Если есть функция обновления индексов фильтрации, вызываем её
+        if (applyFiltering && typeof applyFiltering.updateIndexes === 'function') {
+            applyFiltering.updateIndexes(sampleTable.filter.elements, {
+                searchBySeller: indexes.sellers
+            });
+        }
+
+        // Отрисовываем таблицу
         sampleTable.render(items);
     } catch (error) {
         console.error('Ошибка в render:', error);
     }
 }
 
-let sampleTable, applyPagination, updatePagination, applySorting, applySearching, applyFiltering, updateIndexes;
+// Глобальные переменные
+let sampleTable, applyPagination, applySorting, applySearching, applyFiltering, indexes;
 
 async function init() {
-    // Сначала получаем индексы с сервера
-    const indexes = await api.getIndexes();
+    try {
+        // Получаем индексы с сервера
+        indexes = await API.getIndexes();
 
-    // Теперь инициализируем компоненты ПОСЛЕ получения индексов
-    sampleTable = initTable({
-        tableTemplate: 'table',
-        rowTemplate: 'row',
-        before: ['search', 'header', 'filter'],
-        after: ['pagination']
-    }, render);
+        // Инициализируем компоненты после получения индексов
+        sampleTable = initTable({
+            tableTemplate: 'table',
+            rowTemplate: 'row',
+            before: ['search', 'header', 'filter'],
+            after: ['pagination']
+        }, render);
 
-    ({applyPagination, updatePagination} = initPagination(
-        sampleTable.pagination.elements,
-        (el, page, isCurrent) => {
+        applyPagination = initPagination(sampleTable.pagination.elements, (el, page, isCurrent) => {
             const input = el.querySelector('input');
             const label = el.querySelector('span');
             input.value = page;
             input.checked = isCurrent;
             label.textContent = page;
             return el;
+        });
+
+        applySorting = initSorting([
+            sampleTable.header.elements.sortByDate,
+            sampleTable.header.elements.sortByTotal
+        ]);
+
+        // Инициализация фильтрации после получения индексов
+        applyFiltering = initFiltering(sampleTable.filter.elements);
+        // Обновляем индексы после получения данных
+        if (typeof applyFiltering.updateIndexes === 'function') {
+            applyFiltering.updateIndexes(sampleTable.filter.elements, {
+                searchBySeller: indexes.sellers
+            });
         }
-    ));
 
-    applySorting = initSorting([
-        sampleTable.header.elements.sortByDate,
-        sampleTable.header.elements.sortByTotal
-    ]);
+        applySearching = initSearching('search');
 
-    ({applyFiltering, updateIndexes} = initFiltering(sampleTable.filter.elements));
+        const appRoot = document.querySelector('#app');
+        appRoot.appendChild(sampleTable.container);
 
-    // Обновляем фильтры с полученными индексами
-    updateIndexes(sampleTable.filter.elements, {
-        searchBySeller: indexes.sellers
-    });
-
-    applySearching = initSearching('search');
-
-    const appRoot = document.querySelector('#app');
-    appRoot.appendChild(sampleTable.container);
+        return sampleTable;
+    } catch (error) {
+        console.error('Ошибка инициализации:', error);
+        const appRoot = document.querySelector('#app');
+        appRoot.innerHTML = '<div class="error">Ошибка загрузки данных</div>';
+    }
 }
 
 init()
