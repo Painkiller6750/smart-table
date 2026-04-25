@@ -42,24 +42,33 @@ async function render(action) {
         let state = collectState();
         let query = {};
 
-        // Применяем пагинацию
-        query = applySorting(query, state, action); // result заменяем на query
+        // Применяем глобальный поиск
+        query = applySearching(query, state, action);
 
-        // Применяем фильтрацию — только если компонент инициализирован
+        // Применяем пагинацию — формируем параметры запроса
+        query = window.applyPagination.applyPagination(query, state, action);
+
+        // Сортировка
+        query = applySorting(query, state, action);
+
+        // Фильтрация
         if (applyFiltering && typeof applyFiltering.applyFiltering === 'function') {
             query = applyFiltering.applyFiltering(query, state, action);
         }
 
-        // Получаем данные с сервера с учётом фильтров и пагинации
+        // Получаем данные с сервера
         const { total, items } = await API.getRecords(query);
 
         // Обновляем отображение пагинации после получения данных
-        applyPagination.updatePagination(total, query);
+        if (window.updatePagination) {
+            window.updatePagination(total, query);
+        }
 
-        // Если есть функция обновления индексов фильтрации, вызываем её
+        // Обновляем индексы фильтрации после получения данных
         if (applyFiltering && typeof applyFiltering.updateIndexes === 'function') {
             applyFiltering.updateIndexes(sampleTable.filter.elements, {
-                searchBySeller: indexes.sellers
+                searchBySeller: indexes.sellers,
+                searchByCustomer: indexes.customers
             });
         }
 
@@ -70,15 +79,17 @@ async function render(action) {
     }
 }
 
+
+
 // Глобальные переменные
 let sampleTable, applyPagination, applySorting, applySearching, applyFiltering, indexes;
 
 async function init() {
     try {
-        // Получаем индексы с сервера
+        // 1. Сначала получаем индексы с сервера
         indexes = await API.getIndexes();
 
-        // Инициализируем компоненты после получения индексов
+        // 2. Инициализируем таблицу
         sampleTable = initTable({
             tableTemplate: 'table',
             rowTemplate: 'row',
@@ -86,30 +97,53 @@ async function init() {
             after: ['pagination']
         }, render);
 
-        applyPagination = initPagination(sampleTable.pagination.elements, (el, page, isCurrent) => {
-            const input = el.querySelector('input');
-            const label = el.querySelector('span');
-            input.value = page;
-            input.checked = isCurrent;
-            label.textContent = page;
-            return el;
-        });
+        // 3. Инициализируем пагинацию
+        const {applyPagination, updatePagination} = initPagination(
+            sampleTable.pagination.elements,
+            (el, page, isCurrent) => {
+                const input = el.querySelector('input');
+                const label = el.querySelector('span');
+                input.value = page;
+                input.checked = isCurrent;
+                label.textContent = page;
+                return el;
+            }
+        );
+        window.applyPagination = {applyPagination, updatePagination}; // Сохраняем в глобальную область видимости
 
+        // 4. Инициализируем сортировку
         applySorting = initSorting([
             sampleTable.header.elements.sortByDate,
             sampleTable.header.elements.sortByTotal
         ]);
 
-        // Инициализация фильтрации после получения индексов
+        // 5. Инициализируем фильтрацию (без updateIndexes на этом этапе)
         applyFiltering = initFiltering(sampleTable.filter.elements);
-        // Обновляем индексы после получения данных
-        if (typeof applyFiltering.updateIndexes === 'function') {
-            applyFiltering.updateIndexes(sampleTable.filter.elements, {
-                searchBySeller: indexes.sellers
+
+        // 6. Инициализируем поиск
+        applySearching = initSearching('search');
+
+        // 7. Добавляем обработчик Enter для поля поиска
+        const searchInput = sampleTable.search.elements.search;
+        if (searchInput) {
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    render();
+                }
             });
         }
 
-        applySearching = initSearching('search');
+        // 8. Теперь, когда всё инициализировано и indexes загружены, обновляем компоненты
+        if (applyFiltering && typeof applyFiltering.updateIndexes === 'function') {
+            applyFiltering.updateIndexes(sampleTable.filter.elements, {
+                searchBySeller: indexes.sellers,
+                searchByCustomer: indexes.customers
+            });
+        }
+
+        // Добавляем в глобальную область видимости updatePagination
+        window.updatePagination = updatePagination;
 
         const appRoot = document.querySelector('#app');
         appRoot.appendChild(sampleTable.container);
@@ -121,6 +155,9 @@ async function init() {
         appRoot.innerHTML = '<div class="error">Ошибка загрузки данных</div>';
     }
 }
+
+
+
 
 init()
     .then(() => render())

@@ -8,18 +8,21 @@ export const initPagination = ({pages, fromRow, toRow, totalRows}, createPage) =
     // Временная переменная для хранения количества страниц
     let pageCount;
 
+    /**
+     * Формирует параметры пагинации для запроса к серверу
+     */
     const applyPagination = (query, state, action) => {
         const limit = state.rowsPerPage;
         let page = state.page;
 
+        // Обрабатываем действия пользователя
         if (action) {
             switch (action.name) {
                 case 'prev':
                     page = Math.max(1, page - 1);
                     break;
                 case 'next':
-                    // Увеличиваем страницу, но позже проверим корректность
-                    page++;
+                    page++; // Увеличиваем, позже уточним после получения total
                     break;
                 case 'first':
                     page = 1;
@@ -33,17 +36,19 @@ export const initPagination = ({pages, fromRow, toRow, totalRows}, createPage) =
             }
         }
 
-        // Добавляем параметры к query, не изменяя исходный объект
         return Object.assign({}, query, {
             limit,
             page
         });
     };
 
+    /**
+     * Обновляет отображение пагинатора после получения данных от сервера
+     */
     const updatePagination = (total, { limit, page }) => {
         pageCount = Math.ceil(total / limit);
 
-        // Обновляем номер страницы для действия 'last'
+        // Если действие было 'last', устанавливаем последнюю страницу
         if (page === 'last') {
             page = pageCount;
         }
