@@ -22,7 +22,8 @@ export const initPagination = ({pages, fromRow, toRow, totalRows}, createPage) =
                     page = Math.max(1, page - 1);
                     break;
                 case 'next':
-                    page++; // Увеличиваем, позже уточним после получения total
+                    // Увеличиваем, но не более pageCount (уточним после получения total)
+                    page++;
                     break;
                 case 'first':
                     page = 1;
@@ -38,19 +39,25 @@ export const initPagination = ({pages, fromRow, toRow, totalRows}, createPage) =
 
         return Object.assign({}, query, {
             limit,
-            page
+            page: page || 1 // fallback на 1, если page не определён
         });
     };
+
 
     /**
      * Обновляет отображение пагинатора после получения данных от сервера
      */
     const updatePagination = (total, { limit, page }) => {
-        pageCount = Math.ceil(total / limit);
+        // Проверяем, что total — число
+        const safeTotal = typeof total === 'number' && !isNaN(total) ? total : 0;
+        pageCount = Math.ceil(safeTotal / limit) || 1; // fallback на 1 страницу
 
         // Если действие было 'last', устанавливаем последнюю страницу
         if (page === 'last') {
             page = pageCount;
+        } else if (isNaN(page) || page < 1) {
+            // Если page некорректен, устанавливаем 1
+            page = 1;
         }
 
         // Получаем список видимых страниц
@@ -60,14 +67,15 @@ export const initPagination = ({pages, fromRow, toRow, totalRows}, createPage) =
             return createPage(el, pageNumber, pageNumber === page);
         }));
 
-        // Обновляем статус пагинации
-        const startRow = (page - 1) * limit + 1;
-        const endRow = Math.min(page * limit, total);
+        // Обновляем статус пагинации с проверками
+        const startRow = Math.max(1, (page - 1) * limit + 1);
+        const endRow = Math.min(page * limit, safeTotal);
 
-        fromRow.textContent = startRow;
-        toRow.textContent = endRow;
-        totalRows.textContent = total;
+        fromRow.textContent = safeTotal > 0 ? startRow : 0;
+        toRow.textContent = safeTotal > 0 ? endRow : 0;
+        totalRows.textContent = safeTotal;
     };
+
 
     return {
         applyPagination,

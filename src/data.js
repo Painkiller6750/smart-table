@@ -32,25 +32,41 @@ export function initData(sourceData) {
 
 // функция получения записей о продажах с сервера
     const getRecords = async (query, isUpdated = false) => {
-        const qs = new URLSearchParams(query); // преобразуем объект параметров в SearchParams объект, представляющий query часть url
-        const nextQuery = qs.toString(); // и приводим к строковому виду
+        try {
+            const qs = new URLSearchParams(query);
+            const nextQuery = qs.toString();
 
-        if (lastQuery === nextQuery && !isUpdated) { // isUpdated параметр нужен, чтобы иметь возможность делать запрос без кеша
-            return lastResult; // если параметры запроса не поменялись, то отдаём сохранённые ранее данные
+            if (lastQuery === nextQuery && !isUpdated) {
+                return lastResult;
+            }
+
+            const response = await fetch(`${BASE_URL}/records?${nextQuery}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const records = await response.json();
+
+            // Валидация ответа сервера
+            const safeTotal = typeof records.total === 'number' ? records.total : 0;
+            const safeItems = Array.isArray(records.items) ? records.items : [];
+
+            lastQuery = nextQuery;
+            lastResult = {
+                total: safeTotal,
+                items: mapRecords(safeItems)
+            };
+
+            return lastResult;
+        } catch (error) {
+            console.error('Ошибка загрузки записей:', error);
+            return {
+                total: 0,
+                items: []
+            };
         }
-
-        // если прошлый квери не был ранее установлен или поменялись параметры, то запрашиваем данные с сервера
-        const response = await fetch(`${BASE_URL}/records?${nextQuery}`);
-        const records = await response.json();
-
-        lastQuery = nextQuery; // сохраняем для следующих запросов
-        lastResult = {
-            total: records.total,
-            items: mapRecords(records.items)
-        };
-
-        return lastResult;
     };
+
 
     return {
         getIndexes,

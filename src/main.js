@@ -18,12 +18,21 @@ const API = initData();
  * @returns {Object}
  */
 function collectState() {
-    const state = processFormData(new FormData(sampleTable.container));
-    const rowsPerPage = parseInt(state.rowsPerPage);
-    const page = parseInt(state.page ?? 1);
+    const formData = new FormData(sampleTable.container);
+    const state = processFormData(formData);
+
+    // Исправляем парсинг rowsPerPage с fallback на 10
+    const rowsPerPage = parseInt(state.rowsPerPage) || 10;
+
+    // Исправляем парсинг page с fallback на 1
+    let page = parseInt(state.page);
+    if (isNaN(page) || page < 1) {
+        page = 1;
+    }
+
     const total = [
-        parseFloat(state.totalFrom),
-        parseFloat(state.totalTo)
+        parseFloat(state.totalFrom) || null,
+        parseFloat(state.totalTo) || null
     ];
 
     return {
@@ -33,6 +42,7 @@ function collectState() {
         page
     };
 }
+
 /**
  * Перерисовка состояния таблицы при любых изменениях
  * @param {HTMLButtonElement?} action
@@ -89,13 +99,19 @@ async function init() {
         // 1. Сначала получаем индексы с сервера
         indexes = await API.getIndexes();
 
-        // 2. Инициализируем таблицу
+        // Инициализируем таблицу
         sampleTable = initTable({
             tableTemplate: 'table',
             rowTemplate: 'row',
             before: ['search', 'header', 'filter'],
             after: ['pagination']
         }, render);
+
+        // Устанавливаем начальное значение rowsPerPage, если не задано
+        const rowsPerPageSelect = sampleTable.pagination.elements.rowsPerPage;
+        if (rowsPerPageSelect && !rowsPerPageSelect.value) {
+            rowsPerPageSelect.value = '10';
+        }
 
         // 3. Инициализируем пагинацию
         const {applyPagination, updatePagination} = initPagination(
