@@ -1,10 +1,16 @@
 export function initFiltering(elements) {
-    // Функция для обновления индексов (заполнения select опциями)
     const updateIndexes = (elements, indexes) => {
         // Очищаем существующие опции
         Object.keys(elements).forEach(elementName => {
             if (elements[elementName]) {
                 elements[elementName].innerHTML = '';
+                // Добавляем нейтральную опцию для select
+                if (elements[elementName].tagName === 'SELECT') {
+                    const neutralOption = document.createElement('option');
+                    neutralOption.textContent = '—';
+                    neutralOption.value = '';
+                    elements[elementName].appendChild(neutralOption);
+                }
             }
         });
 
@@ -21,6 +27,7 @@ export function initFiltering(elements) {
             }
         });
     };
+
 
     // Функция формирования параметров фильтрации для запроса к серверу
     const applyFiltering = (query, state, action) => {
