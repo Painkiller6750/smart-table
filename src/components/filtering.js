@@ -1,10 +1,8 @@
 export function initFiltering(elements) {
     const updateIndexes = (elements, indexes) => {
-        // Очищаем существующие опции
         Object.keys(elements).forEach(elementName => {
             if (elements[elementName]) {
                 elements[elementName].innerHTML = '';
-                // Добавляем нейтральную опцию для select
                 if (elements[elementName].tagName === 'SELECT') {
                     const neutralOption = document.createElement('option');
                     neutralOption.textContent = '—';
@@ -14,7 +12,6 @@ export function initFiltering(elements) {
             }
         });
 
-        // Заполняем выпадающие списки опциями
         Object.keys(indexes).forEach((elementName) => {
             if (elements[elementName] && indexes[elementName]) {
                 const options = Object.values(indexes[elementName]).map(name => {
@@ -28,8 +25,15 @@ export function initFiltering(elements) {
         });
     };
 
+// Новая функция: синхронизация UI с состоянием фильтра
+    const updateFilterUI = (elements, state) => {
+        Object.keys(elements).forEach(key => {
+            if (elements[key] && elements[key].tagName === 'SELECT' && state[key]) {
+                elements[key].value = state[key];
+            }
+        });
+    };
 
-    // Функция формирования параметров фильтрации для запроса к серверу
     const applyFiltering = (query, state, action) => {
         // Обрабатываем очистку поля
         if (action && action.name === 'clear') {
@@ -37,24 +41,23 @@ export function initFiltering(elements) {
             if (input) {
                 input.value = '';
             }
-            // Обновляем state — убираем значение очищенного поля
             if (action.dataset.field) {
                 state[action.dataset.field] = '';
             }
         }
 
-        // Формируем параметры фильтрации
+        // Обновляем UI для выпадающих списков
+        updateFilterUI(elements, state);
+
         const filter = {};
         Object.keys(elements).forEach(key => {
             if (elements[key]) {
                 if (['INPUT', 'SELECT'].includes(elements[key].tagName) && elements[key].value) {
-                    // Формируем вложенный объект фильтра
                     filter[`filter[${elements[key].name}]`] = elements[key].value;
                 }
             }
         });
 
-        // Если есть параметры фильтрации, добавляем их к запросу
         return Object.keys(filter).length
             ? Object.assign({}, query, filter)
             : query;
@@ -62,6 +65,7 @@ export function initFiltering(elements) {
 
     return {
         updateIndexes,
-        applyFiltering
+        applyFiltering,
+        updateFilterUI // Экспортируем новую функцию
     };
 }

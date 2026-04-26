@@ -55,7 +55,7 @@ async function render(action) {
         // Применяем глобальный поиск
         query = applySearching(query, state, action);
 
-        // Применяем пагинацию — формируем параметры запроса
+        // Пагинация
         query = window.applyPagination.applyPagination(query, state, action);
 
         // Сортировка
@@ -69,17 +69,14 @@ async function render(action) {
         // Получаем данные с сервера
         const { total, items } = await API.getRecords(query);
 
-        // Обновляем отображение пагинации после получения данных
+        // Обновляем отображение пагинации
         if (window.updatePagination) {
             window.updatePagination(total, query);
         }
 
-        // Обновляем индексы фильтрации после получения данных
-        if (applyFiltering && typeof applyFiltering.updateIndexes === 'function') {
-            applyFiltering.updateIndexes(sampleTable.filter.elements, {
-                searchBySeller: indexes.sellers,
-                searchByCustomer: indexes.customers
-            });
+        // Синхронизируем UI фильтров с текущим состоянием
+        if (applyFiltering && typeof applyFiltering.updateFilterUI === 'function') {
+            applyFiltering.updateFilterUI(sampleTable.filter.elements, state);
         }
 
         // Отрисовываем таблицу
@@ -88,6 +85,7 @@ async function render(action) {
         console.error('Ошибка в render:', error);
     }
 }
+
 
 
 
@@ -133,8 +131,16 @@ async function init() {
             sampleTable.header.elements.sortByTotal
         ]);
 
-        // 5. Инициализируем фильтрацию (без updateIndexes на этом этапе)
+        // 5. Инициализируем фильтрацию
         applyFiltering = initFiltering(sampleTable.filter.elements);
+
+// Добавляем обработчик для выпадающего списка продавцов
+        const sellerSelect = sampleTable.filter.elements.searchBySeller;
+        if (sellerSelect) {
+            sellerSelect.addEventListener('change', () => {
+                render(); // Перерисовываем таблицу при выборе продавца
+            });
+        }
 
         // 6. Инициализируем поиск
         applySearching = initSearching('search');
