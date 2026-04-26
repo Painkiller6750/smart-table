@@ -1,8 +1,8 @@
-import {makeIndex} from "./lib/utils.js";
+
 
 const BASE_URL = 'https://webinars.webdev.education-services.ru/sp7-api';
 
-export function initData(sourceData) {
+export function initData() {
     // переменные для кеширования данных
     let sellers;
     let customers;
